@@ -16,60 +16,90 @@ if [[ $(id -u) != 0 ]]; then
     exit 1
 fi
 
-if [[ $(uname -m 2> /dev/null) != x86_64 ]]; then
-    echo Please run this script on x86_64 machine.
+if ! command -v go &> /dev/null; then
+    echo Please install the latest version of Go.
     exit 1
 fi
 
-NAME=trojan
-VERSION=$(curl -fsSL https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name | sed -E 's/.*"v(.*)".*/\1/')
-TARBALL="$NAME-$VERSION-linux-amd64.tar.xz"
-DOWNLOADURL="https://github.com/trojan-gfw/$NAME/releases/download/v$VERSION/$TARBALL"
+NAME=caddy
 TMPDIR="$(mktemp -d)"
-INSTALLPREFIX=/usr/local
+INSTALLPREFIX=/usr
 SYSTEMDPREFIX=/etc/systemd/system
 
 BINARYPATH="$INSTALLPREFIX/bin/$NAME"
-CONFIGPATH="$INSTALLPREFIX/etc/$NAME/config.json"
+CONFIGPATH="/etc/$NAME/Caddyfile"
 SYSTEMDPATH="$SYSTEMDPREFIX/$NAME.service"
 
 echo Entering temp directory $TMPDIR...
 cd "$TMPDIR"
 
-echo Downloading $NAME $VERSION...
-curl -LO --progress-bar "$DOWNLOADURL" || wget -q --show-progress "$DOWNLOADURL"
+echo Building Caddy with forwardproxy plugins...
+go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest || exit 1
+~/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy@caddy2 || exit 1
 
-echo Unpacking $NAME $VERSION...
-tar xf "$TARBALL"
-cd "$NAME"
-
-echo Installing $NAME $VERSION to $BINARYPATH...
+echo Installing $NAME to $BINARYPATH...
 install -Dm755 "$NAME" "$BINARYPATH"
 
 echo Installing $NAME server config to $CONFIGPATH...
 if ! [[ -f "$CONFIGPATH" ]] || prompt "The server config already exists in $CONFIGPATH, overwrite?"; then
-    install -Dm644 examples/server.json-example "$CONFIGPATH"
+    cat > "$SYSTEMDPATH" << EOF
+{
+  servers {
+    protocol {
+      experimental_http3
+    }
+  }
+}
+:443, example.com
+tls me@example.com
+route {
+  forward_proxy {
+    basic_auth user pass
+    hide_ip
+    hide_via
+    probe_resistance
+  }
+  file_server {
+    root /var/www/html
+  }
+}
+EOF
 else
     echo Skipping installing $NAME server config...
 fi
+
+echo Creating unique Linux group and user for caddy...
+groupadd --system caddy || exit 1
+
+useradd --system \
+    --gid caddy \
+    --create-home \
+    --home-dir /var/lib/caddy \
+    --shell /usr/sbin/nologin \
+    --comment "Caddy web server" \
+    caddy || exit 1
 
 if [[ -d "$SYSTEMDPREFIX" ]]; then
     echo Installing $NAME systemd service to $SYSTEMDPATH...
     if ! [[ -f "$SYSTEMDPATH" ]] || prompt "The systemd service already exists in $SYSTEMDPATH, overwrite?"; then
         cat > "$SYSTEMDPATH" << EOF
 [Unit]
-Description=$NAME
-Documentation=https://trojan-gfw.github.io/$NAME/config https://trojan-gfw.github.io/$NAME/
-After=network.target network-online.target nss-lookup.target mysql.service mariadb.service mysqld.service
+Description=Caddy
+Documentation=https://caddyserver.com/docs/
+After=network.target network-online.target
+Requires=network-online.target
 
 [Service]
-Type=simple
-StandardError=journal
-ExecStart="$BINARYPATH" "$CONFIGPATH"
-ExecReload=/bin/kill -HUP \$MAINPID
-LimitNOFILE=51200
-Restart=on-failure
-RestartSec=1s
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
