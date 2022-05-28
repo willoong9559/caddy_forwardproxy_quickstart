@@ -70,7 +70,7 @@ else
 fi
 
 echo Creating unique Linux group and user for caddy...
-groupadd --system caddy || exit 1
+groupadd --system caddy
 
 useradd --system \
     --gid caddy \
@@ -78,7 +78,7 @@ useradd --system \
     --home-dir /var/lib/caddy \
     --shell /usr/sbin/nologin \
     --comment "Caddy web server" \
-    caddy || exit 1
+    caddy
 
 if [[ -d "$SYSTEMDPREFIX" ]]; then
     echo Installing $NAME systemd service to $SYSTEMDPATH...
