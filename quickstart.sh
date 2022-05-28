@@ -42,6 +42,7 @@ install -Dm755 "$NAME" "$BINARYPATH"
 
 echo Installing $NAME server config to $CONFIGPATH...
 if ! [[ -f "$CONFIGPATH" ]] || prompt "The server config already exists in $CONFIGPATH, overwrite?"; then
+    mkdir -p /etc/$NAME/ || exit 1
     cat > "$SYSTEMDPATH" << EOF
 {
   servers {
