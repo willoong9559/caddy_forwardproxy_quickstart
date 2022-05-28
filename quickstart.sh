@@ -24,6 +24,7 @@ fi
 NAME=caddy
 TMPDIR="$(mktemp -d)"
 INSTALLPREFIX=/usr
+CONFIGPREFIX=/etc/caddy
 SYSTEMDPREFIX=/etc/systemd/system
 
 BINARYPATH="$INSTALLPREFIX/bin/$NAME"
@@ -38,12 +39,13 @@ go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest || exit 1
 ~/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy@caddy2 || exit 1
 
 echo Installing $NAME to $BINARYPATH...
-install -Dm755 "$NAME" "$BINARYPATH"
+install -Dm755 "$NAME" "$BINARYPATH" || exit 1
 
-echo Installing $NAME server config to $CONFIGPATH...
-if ! [[ -f "$CONFIGPATH" ]] || prompt "The server config already exists in $CONFIGPATH, overwrite?"; then
+if ! [[ -d "$CONFIGPREFIX" ]]; then
     mkdir -p /etc/$NAME/ || exit 1
-    cat > "$SYSTEMDPATH" << EOF
+fi
+if ! [[ -f "$CONFIGPATH" ]] || prompt "The server config already exists in $CONFIGPATH, overwrite?"; then
+    cat > "$CONFIGPATH" << EOF
 {
   servers {
     protocol {
@@ -70,24 +72,21 @@ else
 fi
 
 echo Creating unique Linux group and user for caddy...
-/bin/egrep  -i "^${NAME}:" /etc/group
-if [ $? -eq 0 ]; then
+if grep -q $NAME /etc/group; then
     echo "Group $NAME exists in /etc/group"
-else 
-    groupadd --system caddy
+else
+    groupadd --system $NAME
 fi
-
-/bin/egrep  -i "^${NAME}:" /etc/passwd
-if [ $? -eq 0 ]; then
+if grep -q $NAME /etc/passwd; then
     echo "User $NAME exists in /etc/passwd"
-else 
+else
     useradd --system \
-        --gid caddy \
-        --create-home \
-        --home-dir /var/lib/caddy \
-        --shell /usr/sbin/nologin \
-        --comment "Caddy web server" \
-        caddy
+        --gid $NAME \
+    	--create-home \
+	    --home-dir /var/lib/$NAME \
+	    --shell /usr/sbin/nologin \
+	    --comment "$NAME web server" \
+        $NAME
 fi
 
 if [[ -d "$SYSTEMDPREFIX" ]]; then
