@@ -1,16 +1,15 @@
-# trojan-quickstart
+# forwardproxy-quickstart
 
-A simple installation script for trojan server.
+A simple installation script for caddyserver with forward proxy plugin.
 
-This script will help you install the trojan binary to `/usr/local/bin`, a template for server configuration to `/usr/local/etc/trojan`, and (if applicable) a systemd service to `/etc/systemd/system`. It only works on `linux-amd64` machines.
-
+This script will help you install the caddy binary to `/usr/bin`, a template for server configuration to `/etc/caddy`, and (if applicable) a systemd service to `/etc/systemd/system`.
 ## Usage
 
 - via `curl`
     ```
-    sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
+    sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/willoong9559/forwardproxy-quickstart/master/quickstart.sh)"
     ```
 - via `wget`
     ```
-    sudo bash -c "$(wget -O- https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
+    sudo bash -c "$(wget -O- https://raw.githubusercontent.com/willoong9559/forwardproxy-quickstart/master/quickstart.sh)"
     ```
