@@ -70,15 +70,25 @@ else
 fi
 
 echo Creating unique Linux group and user for caddy...
-groupadd --system caddy
+/bin/egrep  -i "^${NAME}:" /etc/group
+if [ $? -eq 0 ]; then
+    echo "Group $NAME exists in /etc/group"
+else 
+    groupadd --system caddy
+fi
 
-useradd --system \
-    --gid caddy \
-    --create-home \
-    --home-dir /var/lib/caddy \
-    --shell /usr/sbin/nologin \
-    --comment "Caddy web server" \
-    caddy
+/bin/egrep  -i "^${NAME}:" /etc/passwd
+if [ $? -eq 0 ]; then
+    echo "User $NAME exists in /etc/passwd"
+else 
+    useradd --system \
+        --gid caddy \
+        --create-home \
+        --home-dir /var/lib/caddy \
+        --shell /usr/sbin/nologin \
+        --comment "Caddy web server" \
+        caddy
+fi
 
 if [[ -d "$SYSTEMDPREFIX" ]]; then
     echo Installing $NAME systemd service to $SYSTEMDPATH...
